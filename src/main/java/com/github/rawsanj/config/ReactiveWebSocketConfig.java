@@ -26,10 +26,10 @@ import static com.github.rawsanj.config.ChatConstants.WEBSOCKET_MESSAGE_MAPPING;
 public class ReactiveWebSocketConfig {
 
 	@Bean
-	public ChatWebSocketHandler webSocketHandler(RedisChatMessagePublisher redisChatMessagePublisher, RedisAtomicLong activeUserCounter,
+	public ChatWebSocketHandler webSocketHandler(RedisChatMessagePublisher redisChatMessagePublisher,
 												 ObjectStringConverter objectStringConverter) {
 		Sinks.Many<ChatMessage> chatMessageSink = Sinks.many().multicast().onBackpressureBuffer();
-		return new ChatWebSocketHandler(chatMessageSink, redisChatMessagePublisher, activeUserCounter, objectStringConverter);
+		return new ChatWebSocketHandler(chatMessageSink, redisChatMessagePublisher, objectStringConverter);
 	}
 
 	@Bean

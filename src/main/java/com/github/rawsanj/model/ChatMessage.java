@@ -9,9 +9,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class ChatMessage {
 
-	private Integer id;
 	private String message;
-	private String hostname;
-	private Long usersOnline;
 
 }

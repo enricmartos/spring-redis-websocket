@@ -4,7 +4,6 @@ import com.github.rawsanj.messaging.RedisChatMessagePublisher;
 import com.github.rawsanj.model.ChatMessage;
 import com.github.rawsanj.util.ObjectStringConverter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.support.atomic.RedisAtomicLong;
 import org.springframework.web.reactive.socket.WebSocketHandler;
 import org.springframework.web.reactive.socket.WebSocketMessage;
 import org.springframework.web.reactive.socket.WebSocketSession;
@@ -18,15 +17,13 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 	private final Sinks.Many<ChatMessage> chatMessageSink;
 	private final Flux<ChatMessage> chatMessageFluxSink;
 	private final RedisChatMessagePublisher redisChatMessagePublisher;
-	private final RedisAtomicLong activeUserCounter;
 	private final ObjectStringConverter objectStringConverter;
 
 	public ChatWebSocketHandler(Sinks.Many<ChatMessage> chatMessageSink, RedisChatMessagePublisher redisChatMessagePublisher,
-								RedisAtomicLong activeUserCounter, ObjectStringConverter objectStringConverter) {
+								ObjectStringConverter objectStringConverter) {
 		this.chatMessageSink = chatMessageSink;
 		this.chatMessageFluxSink = chatMessageSink.asFlux();
 		this.redisChatMessagePublisher = redisChatMessagePublisher;
-		this.activeUserCounter = activeUserCounter;
 		this.objectStringConverter = objectStringConverter;
 	}
 
@@ -40,15 +37,13 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		Mono<Void> inputMessage = webSocketSession.receive()
 			.flatMap(webSocketMessage -> redisChatMessagePublisher.publishChatMessage(webSocketMessage.getPayloadAsText()))
 			.doOnSubscribe(subscription -> {
-				long activeUserCount = activeUserCounter.incrementAndGet();
-				log.info("User '{}' Connected. Total Active Users: {}", webSocketSession.getId(), activeUserCount);
-				chatMessageSink.tryEmitNext(new ChatMessage(0, "CONNECTED", "CONNECTED", activeUserCount));
+				log.info("User '{}' Connected.", webSocketSession.getId());
+				chatMessageSink.tryEmitNext(new ChatMessage("CONNECTED"));
 			})
 			.doOnError(throwable -> log.error("Error Occurred while sending message to Redis.", throwable))
 			.doFinally(signalType -> {
-				long activeUserCount = activeUserCounter.decrementAndGet();
-				log.info("User '{}' Disconnected. Total Active Users: {}", webSocketSession.getId(), activeUserCount);
-				chatMessageSink.tryEmitNext(new ChatMessage(0, "DISCONNECTED", "DISCONNECTED", activeUserCount));
+				log.info("User '{}' Disconnected.", webSocketSession.getId());
+				chatMessageSink.tryEmitNext(new ChatMessage("DISCONNECTED"));
 			})
 			.then();
 
@@ -59,7 +54,7 @@ public class ChatWebSocketHandler implements WebSocketHandler {
 		return Mono.fromSupplier(() -> chatMessageSink.tryEmitNext(chatMessage))
 			.doOnSuccess(emitResult -> {
 				if (emitResult.isFailure()) {
-					log.error("Failed to send message with id: {}", chatMessage.getId());
+					log.error("Failed to send message: {}", chatMessage.getMessage());
 				}
 			});
 	}
